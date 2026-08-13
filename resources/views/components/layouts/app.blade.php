@@ -13,6 +13,19 @@
         <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-S1FYER9XZ7"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+
+            function gtag() {
+                dataLayer.push(arguments);
+            }
+
+            gtag('js', new Date());
+
+            gtag('config', 'G-S1FYER9XZ7');
+        </script>
     </head>
     <body class="min-h-screen bg-stone-50 font-sans text-stone-900 antialiased selection:bg-emerald-100 selection:text-emerald-900">
         <nav class="sticky top-0 z-10 border-b border-stone-200 bg-stone-50/90 backdrop-blur-md">
@@ -48,10 +61,10 @@
 
         {{ $slot }}
 
-        <x-layouts.colophon />
+        <x-colophon />
 
         @auth
-            <x-layouts.back-to-top />
+            <x-back-to-top />
         @endauth
 
     </body>

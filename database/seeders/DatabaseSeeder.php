@@ -51,7 +51,10 @@ class DatabaseSeeder extends Seeder
             ->flatMap(function (int $daysAgo) use ($minPerDay, $today, $user, $winTemplates, $winsByDate) {
                 $localDate = $today->copy()->subDays($daysAgo);
                 $dateKey = $localDate->toDateString();
-                $winsNeeded = max(0, $minPerDay - $winsByDate->get($dateKey, collect())->count());
+
+                $total = rand(1, $minPerDay - $winsByDate->get($dateKey, collect())->count());
+
+                $winsNeeded = max(0, $total);
 
                 if ($winsNeeded === 0) {
                     return collect();
