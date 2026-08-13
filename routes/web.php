@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\McpConnectionController;
+use App\Http\Controllers\TimelineViewController;
 use App\Http\Controllers\TimezoneController;
 use App\Http\Controllers\WinController;
 use App\Http\Controllers\WinFeedController;
@@ -28,6 +29,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/wins', WinFeedController::class)->name('wins.feed');
     Route::post('/wins', [WinController::class, 'store'])->middleware('throttle:wins')->name('wins.store');
     Route::post('/timezone', TimezoneController::class)->name('timezone.update');
+    Route::put('/timeline-view', TimelineViewController::class)->name('timeline-view.update');
     Route::get('/connections', [McpConnectionController::class, 'index'])->name('connections.index');
     Route::delete('/connections/{client}', [McpConnectionController::class, 'destroy'])->whereUuid('client')->name('connections.destroy');
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');

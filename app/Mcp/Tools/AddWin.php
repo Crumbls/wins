@@ -4,6 +4,7 @@ namespace App\Mcp\Tools;
 
 use App\Actions\CreateWin;
 use App\Models\User;
+use App\Models\Win;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -25,7 +26,7 @@ class AddWin extends Tool
             return Response::error('Authentication is required to record a win.');
         }
 
-        $validated = $request->validate(['content' => ['required', 'string', 'max:1000']]);
+        $validated = $request->validate(['content' => Win::contentRules()]);
         $win = $createWin->handle($user, $validated['content']);
 
         return Response::structured(['win' => [

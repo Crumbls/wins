@@ -9,7 +9,7 @@ It is not a task manager, habit tracker, productivity dashboard, or AI assistant
 - Lets authenticated people record short wins throughout the day.
 - Shows the current week, a running daily streak, and an infinite history grouped by date.
 - Stores timestamps in UTC and uses the person’s saved time zone only when presenting their days, weekly view, and streak.
-- Limits wins per day with `WINS_MAX_PER_DAY` and rate-limits submissions server-side.
+- Enforces the server-wide `WINS_MAX_PER_DAY` cap while keeping each user’s `daily_wins_goal` as a gentle agent reflection target; users can also choose `weekly_check_in_days`.
 - Includes public Privacy Policy and Terms of Service pages. Wins stores account and journal data to operate the service and does not sell or resell personal information or wins.
 
 The interface is Blade, Tailwind CSS, and Alpine.js. Laravel owns the data, authentication, validation, authorization, and rate limits.
@@ -31,9 +31,11 @@ The connection is OAuth 2.1 through Laravel Passport:
 
 The server currently provides:
 
-- `get-today-status` — today’s win count, remaining capacity, and daily streak.
+- `get-today-status` — today’s win count, remaining server capacity, personal reflection target, check-in status, and daily streak.
 - `add-win` — records a win only when the person explicitly asks; it uses the same daily cap as the web form.
 - `list-recent-wins` — returns the person’s wins in date groups with a cursor for older entries.
+- `set-daily-wins-goal` — changes the person’s daily reflection target from 1 to 5; it never changes the server cap.
+- `set-weekly-check-in-days` — changes which ISO weekdays an agent may initiate a reflection.
 
 MCP requests require a valid Passport token, the `mcp:use` scope, and are rate-limited per user. Users can view and revoke connected agents from **Connections** in the application header. Revocation invalidates both access and refresh tokens.
 

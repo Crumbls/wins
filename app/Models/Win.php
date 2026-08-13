@@ -11,12 +11,30 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 #[Fillable(['content'])]
 class Win extends Model
 {
+    private const STREAK_CACHE_TTL_SECONDS = 60;
+
     /** @use HasFactory<WinFactory> */
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::created(fn (Win $win) => self::forgetStreakCacheForUser($win->user_id));
+
+        static::updated(function (Win $win): void {
+            self::forgetStreakCacheForUser($win->user_id);
+
+            if ($win->wasChanged('user_id')) {
+                self::forgetStreakCacheForUser($win->getOriginal('user_id'));
+            }
+        });
+
+        static::deleted(fn (Win $win) => self::forgetStreakCacheForUser($win->user_id));
+    }
 
     /**
      * @return BelongsTo<User, $this>
@@ -24,6 +42,19 @@ class Win extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function contentRules(): array
+    {
+        return ['required', 'string', 'min:3', 'max:1000'];
+    }
+
+    public static function sanitizeContent(string $content): string
+    {
+        return trim(strip_tags($content));
     }
 
     public static function currentDailyStreakFor(User $user): int
@@ -69,6 +100,15 @@ class Win extends Model
 
     private static function currentStreakFor(User $user, bool $weekdaysOnly): int
     {
+        return Cache::remember(
+            self::streakCacheKey($user->getKey(), $weekdaysOnly),
+            self::STREAK_CACHE_TTL_SECONDS,
+            fn (): int => self::calculateCurrentStreakFor($user, $weekdaysOnly),
+        );
+    }
+
+    private static function calculateCurrentStreakFor(User $user, bool $weekdaysOnly): int
+    {
         $expectedDate = now('UTC')->setTimezone($user->timezone)->startOfDay();
 
         while ($weekdaysOnly && $expectedDate->isWeekend()) {
@@ -101,5 +141,20 @@ class Win extends Model
         }
 
         return $streakDays;
+    }
+
+    private static function forgetStreakCacheForUser(int|string|null $userId): void
+    {
+        if ($userId === null) {
+            return;
+        }
+
+        Cache::forget(self::streakCacheKey($userId, weekdaysOnly: false));
+        Cache::forget(self::streakCacheKey($userId, weekdaysOnly: true));
+    }
+
+    private static function streakCacheKey(int|string $userId, bool $weekdaysOnly): string
+    {
+        return 'wins:streak:'.$userId.':'.($weekdaysOnly ? 'weekdays' : 'daily');
     }
 }

@@ -1,4 +1,4 @@
-@props(['weekDays', 'weeklyWinsCount'])
+@props(['weekDays', 'weeklyWinsCount', 'timelineView'])
 
 @php
     $initialCounts = $weekDays->map(fn (array $day): int => $day['wins']->count())->values();
@@ -6,15 +6,17 @@
 @endphp
 
 <section
-    class="mb-12 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6"
-    x-data="weeklyWins({{ \Illuminate\Support\Js::from($initialCounts) }}, {{ \Illuminate\Support\Js::from($weekDates) }})"
+    class="card"
+    x-data="weeklyWins({{ \Illuminate\Support\Js::from($initialCounts) }}, {{ \Illuminate\Support\Js::from($weekDates) }}, {{ \Illuminate\Support\Js::from($timelineView) }})"
     x-on:weekly-wins:add.window="add($event.detail)"
     x-on:weekly-wins:remove.window="remove($event.detail)"
     x-on:weekly-wins:set-total.window="setTotal($event.detail)"
+    x-on:wins-timeline:view-changed.window="timelineView = $event.detail.view"
+    x-show="timelineView !== 'weekly'"
 >
     <div class="mb-6 flex items-end justify-between">
         <h2 class="text-sm font-medium text-stone-500">This week</h2>
-        <span class="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-500"><span x-text="total">{{ $weeklyWinsCount }}</span> wins noticed</span>
+        <span class="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-500"><span x-text="total">{{ $weeklyWinsCount }}</span> Win</span>
     </div>
 
     <div class="grid grid-cols-7 gap-3">

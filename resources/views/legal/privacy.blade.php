@@ -2,7 +2,7 @@
     <main class="mx-auto max-w-2xl px-6 py-12 sm:py-16">
         <article class="rounded-2xl bg-surface p-8 shadow-sm ring-1 ring-black/5 sm:p-10">
             <p class="text-sm font-medium text-brand">Legal</p>
-            <h1 class="mt-2 font-serif text-4xl italic text-ink sm:text-5xl">Privacy Policy</h1>
+            <h1>Privacy Policy</h1>
             <p class="mt-4 text-sm leading-6 text-ink-soft">Effective <time datetime="2026-08-13">August 13, 2026</time></p>
 
             <div class="mt-10 space-y-8 text-sm leading-7 text-ink-soft">

@@ -1,4 +1,4 @@
-@props(['title' => 'Wins', 'statusDate' => null, 'streakDays' => 0])
+@props(['title' => 'Wins'])
 
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -16,12 +16,13 @@
     </head>
     <body class="min-h-screen bg-stone-50 font-sans text-stone-900 antialiased selection:bg-emerald-100 selection:text-emerald-900">
         <nav class="sticky top-0 z-10 border-b border-stone-200 bg-stone-50/90 backdrop-blur-md">
-            <div class="mx-auto flex max-w-2xl items-center justify-between gap-4 px-6 py-4">
+            <div class="container !py-0">
+                <div class="flex items-center justify-between gap-4 !py-4">
                 <a href="{{ auth()->check() ? route('dashboard') : route('login') }}" class="text-sm font-medium tracking-tight text-stone-900">Wins</a>
 
                 @auth
                     <div class="flex items-center gap-3">
-                        <x-layouts.status-ticker :date="$statusDate ?? now('UTC')->setTimezone(auth()->user()->timezone)" :streak-days="$streakDays" />
+                        <x-status-ticker />
                         <a href="{{ route('connections.index') }}" class="text-xs font-medium text-ink-soft transition-colors hover:text-ink">Connections</a>
 
                         <form method="POST" action="{{ route('logout') }}" class="flex items-center">
@@ -38,9 +39,10 @@
                 @else
                     <div class="flex items-center gap-4 text-xs font-medium">
                         <a href="{{ route('login') }}" class="text-stone-500 transition-colors hover:text-stone-900">Log in</a>
-                        <a href="{{ route('register') }}" class="rounded-xl bg-emerald-700 px-4 py-2 text-white shadow-sm transition-colors hover:bg-emerald-800">Create account</a>
+                        <a href="{{ route('register') }}" class="button-small">Create account</a>
                     </div>
                 @endauth
+                </div>
             </div>
         </nav>
 

@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Models\Win;
+use App\View\Components\StatusTicker;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 
 uses(LazilyRefreshDatabase::class);
@@ -39,6 +40,29 @@ test('wins created through the asynchronous form return their created timestamp'
         ->assertJsonMissingPath('win.local_date');
 });
 
+test('wins store plain text when submitted with HTML', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->postJson(route('wins.store'), ['content' => '<strong>Finished the difficult thing.</strong>'])
+        ->assertCreated()
+        ->assertJsonPath('win.content', 'Finished the difficult thing.');
+
+    expect(Win::query()->sole()->content)->toBe('Finished the difficult thing.');
+});
+
+test('wins must be between three and one thousand characters', function (string $content) {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->postJson(route('wins.store'), ['content' => $content])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('content');
+})->with([
+    'too short after HTML is removed' => '<strong>No</strong>',
+    'too long' => str_repeat('a', 1001),
+]);
+
 test('win submissions are rate limited per authenticated user', function () {
     config(['wins.max_per_day' => 13]);
 
@@ -58,9 +82,11 @@ test('win submissions are rate limited per authenticated user', function () {
 });
 
 test('win submissions stop at the configured daily maximum', function () {
+    $user = User::factory()->create([
+        'daily_wins_goal' => 5,
+        'timezone' => 'America/Denver',
+    ]);
     config(['wins.max_per_day' => 2]);
-
-    $user = User::factory()->create(['timezone' => 'America/Denver']);
 
     $this->travelTo('2026-08-13 18:00:00 UTC');
 
@@ -116,14 +142,15 @@ test('authenticated users can load earlier complete date groups of their wins', 
         ->assertJsonPath('next_before', '2026-08-10');
 });
 
-test('the dashboard receives the user’s weekly overview data', function () {
-    $user = User::factory()->create();
+test('the dashboard receives the user’s weekly overview data and timeline preference', function () {
+    $user = User::factory()->create(['wins_timeline_view' => 'weekly']);
     Win::factory()->for($user)->create();
 
     $this->actingAs($user)
         ->get(route('dashboard'))
         ->assertSuccessful()
         ->assertViewIs('dashboard')
+        ->assertViewHas('timelineView', 'weekly')
         ->assertViewHas('weeklyWinsCount', 1)
         ->assertViewHas('weekDays', fn ($weekDays): bool => $weekDays->count() === 7);
 });
@@ -141,6 +168,61 @@ test('daily streaks count consecutive days with wins', function () {
     }
 
     expect(Win::currentDailyStreakFor($user))->toBe(3);
+});
+
+test('win changes invalidate a user’s cached streak', function () {
+    $user = User::factory()->create(['timezone' => 'America/Denver']);
+
+    $this->travelTo('2026-08-13 18:00:00 UTC');
+
+    $today = Win::factory()->for($user)->create([
+        'created_at' => '2026-08-13 12:00:00 UTC',
+        'updated_at' => '2026-08-13 12:00:00 UTC',
+    ]);
+
+    expect(Win::currentDailyStreakFor($user))->toBe(1);
+
+    $yesterday = Win::factory()->for($user)->create([
+        'created_at' => '2026-08-12 12:00:00 UTC',
+        'updated_at' => '2026-08-12 12:00:00 UTC',
+    ]);
+
+    expect(Win::currentDailyStreakFor($user))->toBe(2);
+
+    $yesterday->forceFill([
+        'created_at' => '2026-08-11 12:00:00 UTC',
+        'updated_at' => '2026-08-11 12:00:00 UTC',
+    ])->save();
+
+    expect(Win::currentDailyStreakFor($user))->toBe(1);
+
+    $today->delete();
+
+    expect(Win::currentDailyStreakFor($user))->toBe(0);
+});
+
+test('the status ticker resolves the current user streak when one is not supplied', function () {
+    $user = User::factory()->create(['timezone' => 'America/Denver']);
+
+    $this->travelTo('2026-08-13 18:00:00 UTC');
+
+    foreach (['2026-08-13', '2026-08-12'] as $date) {
+        Win::factory()->for($user)->create([
+            'created_at' => "{$date} 12:00:00 UTC",
+            'updated_at' => "{$date} 12:00:00 UTC",
+        ]);
+    }
+
+    $this->actingAs($user);
+
+    $ticker = new StatusTicker;
+
+    expect($ticker->date->getTimezone()->getName())
+        ->toBe('America/Denver')
+        ->and($ticker->streakDays)
+        ->toBe(2)
+        ->and((new StatusTicker(streakDays: 8))->streakDays)
+        ->toBe(8);
 });
 
 test('weekday streaks skip Saturday and Sunday', function () {

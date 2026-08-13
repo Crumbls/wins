@@ -28,6 +28,9 @@ class UserFactory extends Factory
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
+            'daily_wins_goal' => 5,
+            'weekly_check_in_days' => User::DEFAULT_WEEKLY_CHECK_IN_DAYS,
+            'wins_timeline_view' => 'daily',
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
         ];

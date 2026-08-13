@@ -71,6 +71,11 @@ class DatabaseSeeder extends Seeder
                         ];
                     });
             })
+            ->map(function (array $win): array {
+                $win['content'] = Win::sanitizeContent($win['content']);
+
+                return $win;
+            })
             ->values()
             ->all();
 

@@ -7,7 +7,7 @@
 
                 <div class="relative">
                     <p class="text-sm font-medium text-brand">A calmer daily ritual</p>
-                    <h1 class="mt-3 font-serif text-4xl leading-[0.95] italic text-ink sm:text-5xl">Notice the proof that you’re moving forward.</h1>
+                    <h1>Track the proof that you’re moving forward.</h1>
 
                     <div class="mt-7 max-w-xl space-y-4 text-base leading-7 text-ink-soft">
                         <p>Wins is a simple way to notice and track what you’re doing well throughout the day.</p>
@@ -21,7 +21,7 @@
                 <div class="mx-auto w-full max-w-sm">
                     <div class="mb-8">
                         <p class="text-sm font-medium text-brand">Welcome back</p>
-                        <h2 class="mt-2 font-serif text-4xl italic text-ink md:hidden">Notice what went well.</h2>
+                        <h2 class="mt-2">Notice what went well.</h2>
                         <p class="mt-3 text-sm leading-6 text-ink-soft">Your wins are waiting for you.</p>
                     </div>
 
@@ -35,7 +35,7 @@
                             Keep me signed in
                         </label>
 
-                        <button type="submit" class="w-full rounded-xl bg-emerald-700 px-5 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-800">Log in</button>
+                        <button type="submit" class="button">Log in</button>
                     </form>
 
                     <p class="mt-6 text-center text-sm text-ink-soft">New here? <a href="{{ route('register') }}" class="font-medium text-brand hover:underline">Create an account</a>.</p>

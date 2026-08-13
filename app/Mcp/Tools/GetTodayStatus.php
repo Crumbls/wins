@@ -11,7 +11,7 @@ use Laravel\Mcp\ResponseFactory;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 
-#[Description('Gets today’s date, recorded win count, remaining daily capacity, and current streak for the signed-in user.')]
+#[Description('Gets today’s date, recorded win count, server-enforced capacity, personal reflection goal, and current streak for the signed-in user.')]
 class GetTodayStatus extends Tool
 {
     /**
@@ -28,12 +28,17 @@ class GetTodayStatus extends Tool
         $now = now('UTC')->setTimezone($user->timezone);
         $winsToday = $user->wins()->whereBetween('created_at', [$now->copy()->startOfDay()->utc(), $now->copy()->endOfDay()->utc()])->count();
         $dailyLimit = max(1, (int) config('wins.max_per_day'));
+        $dailyWinsGoal = max(1, $user->daily_wins_goal);
 
         return Response::structured([
             'date' => $now->toDateString(),
             'wins_today' => $winsToday,
             'daily_limit' => $dailyLimit,
             'remaining_wins' => max(0, $dailyLimit - $winsToday),
+            'daily_wins_goal' => $dailyWinsGoal,
+            'remaining_goal_wins' => max(0, $dailyWinsGoal - $winsToday),
+            'is_check_in_day' => $user->isCheckInDay($now->dayOfWeekIso),
+            'weekly_check_in_days' => $user->weeklyCheckInDays(),
             'current_streak_days' => Win::currentDailyStreakFor($user),
         ]);
     }

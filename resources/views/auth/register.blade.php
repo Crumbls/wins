@@ -7,7 +7,7 @@
 
                 <div class="relative">
                     <p class="text-sm font-medium text-brand">A gentle place to begin</p>
-                    <h1 class="mt-3 font-serif text-4xl leading-[0.95] italic text-ink sm:text-5xl">Make room for what went well.</h1>
+                    <h1>Make room for what went well.</h1>
 
                     <div class="mt-7 max-w-xl space-y-4 text-base leading-7 text-ink-soft">
                         <p>Wins is a private place to keep track of the progress that can otherwise disappear into a busy day.</p>
@@ -34,7 +34,7 @@
                         <x-form.input name="password" label="Password" type="password" autocomplete="new-password" required />
                         <x-form.input name="password_confirmation" label="Confirm password" type="password" autocomplete="new-password" required />
 
-                        <button type="submit" class="w-full rounded-xl bg-emerald-700 px-5 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-800">Create account</button>
+                        <button type="submit" class="button">Create account</button>
                     </form>
 
                     <p class="mt-6 text-center text-sm text-ink-soft">Already have an account? <a href="{{ route('login') }}" class="font-medium text-brand hover:underline">Log in</a>.</p>

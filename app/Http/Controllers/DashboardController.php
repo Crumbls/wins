@@ -16,6 +16,7 @@ class DashboardController extends Controller
     public function __invoke(Request $request): View
     {
         $user = $request->user();
+
         $now = now('UTC')->setTimezone($user->timezone);
         $weekStart = $now->copy()->startOfWeek();
         $weekEnd = $now->copy()->endOfWeek();
@@ -39,12 +40,13 @@ class DashboardController extends Controller
         $recentWinFeed = Win::dateGroupsFor($user);
 
         return view('dashboard', [
-            'currentDate' => $now,
+            'hasMcpConnection' => $user->connections()->exists(),
             'nextRecentWinsBefore' => $recentWinFeed['nextBefore'],
             'recentWins' => $recentWinFeed['groups'],
-            'streakDays' => Win::currentDailyStreakFor($user),
+            'timelineView' => $user->wins_timeline_view,
             'weekDays' => $weekDays,
             'weeklyWinsCount' => $weeklyWins->count(),
+            'user' => $user,
         ]);
     }
 }

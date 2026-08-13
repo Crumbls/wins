@@ -14,11 +14,9 @@ class McpConnectionController extends Controller
 {
     public function index(Request $request): View
     {
-        $connections = $request->user()->tokens()
-            ->with('client')
-            ->whereJsonContains('scopes', Registrar::OAUTH_SCOPE)
-            ->where('revoked', false)
-            ->where('expires_at', '>', now())
+        $connections = $request
+            ->user()
+            ->connections()
             ->latest()
             ->get()
             ->groupBy('client_id')

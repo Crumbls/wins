@@ -7,6 +7,7 @@ namespace App\Actions;
 use App\Models\User;
 use App\Models\Win;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 class CreateWin
@@ -15,6 +16,10 @@ class CreateWin
     {
         return DB::transaction(function () use ($authenticatedUser, $content): Win {
             $user = User::query()->lockForUpdate()->findOrFail($authenticatedUser->id);
+            $content = Validator::make(
+                ['content' => Win::sanitizeContent($content)],
+                ['content' => Win::contentRules()],
+            )->validate()['content'];
             $now = now('UTC')->setTimezone($user->timezone);
             $maximumWinsPerDay = max(1, (int) config('wins.max_per_day'));
             $winsToday = $user->wins()->whereBetween('created_at', [$now->copy()->startOfDay()->utc(), $now->copy()->endOfDay()->utc()])->count();

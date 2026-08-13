@@ -10,7 +10,7 @@
         <main class="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
             <section class="w-full rounded-3xl border border-stone-200 bg-white p-8 shadow-sm sm:p-10">
                 <p class="text-sm font-medium text-brand">Connect an agent</p>
-                <h1 class="mt-2 font-serif text-4xl italic text-ink">Authorize {{ $client->name }}?</h1>
+                <h1>Authorize {{ $client->name }}?</h1>
                 <p class="mt-4 text-sm leading-6 text-ink-soft">This agent will be able to read your Wins journal and add a win when you explicitly ask it to. It cannot access anyone else’s journal.</p>
                 <div class="mt-8 rounded-2xl bg-stone-50 p-5">
                     <p class="text-xs font-medium uppercase tracking-widest text-stone-500">Signed in as</p>
@@ -29,7 +29,7 @@
                         @csrf
                         <input type="hidden" name="client_id" value="{{ $client->id }}">
                         <input type="hidden" name="auth_token" value="{{ $authToken }}">
-                        <button type="submit" class="w-full rounded-xl bg-emerald-700 px-5 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-800">Authorize agent</button>
+                        <button type="submit" class="button">Authorize agent</button>
                     </form>
                 </div>
             </section>

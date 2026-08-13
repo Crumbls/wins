@@ -1,9 +1,12 @@
 <?php
 
 use App\Actions\CreateWin;
+use App\Mcp\Servers\WinsServer;
 use App\Mcp\Tools\AddWin;
 use App\Mcp\Tools\GetTodayStatus;
 use App\Mcp\Tools\ListRecentWins;
+use App\Mcp\Tools\SetDailyWinsGoal;
+use App\Mcp\Tools\SetWeeklyCheckInDays;
 use App\Models\User;
 use App\Models\Win;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -66,15 +69,17 @@ test('users fulfill Passport’s OAuth authenticatable contract', function () {
 });
 
 test('MCP tools only use the authenticated user and share the website win limits', function () {
+    $user = User::factory()->create([
+        'daily_wins_goal' => 5,
+        'timezone' => 'America/Denver',
+    ]);
     config(['wins.max_per_day' => 2]);
-
-    $user = User::factory()->create(['timezone' => 'America/Denver']);
     $otherUser = User::factory()->create();
     Win::factory()->for($otherUser)->create(['content' => 'Private win']);
     $this->actingAs($user);
 
     $created = app(AddWin::class)->handle(
-        new McpRequest(['content' => 'Finished the production MCP connection.']),
+        new McpRequest(['content' => '<strong>Finished the production MCP connection.</strong>']),
         app(CreateWin::class),
     );
 
@@ -88,6 +93,8 @@ test('MCP tools only use the authenticated user and share the website win limits
         'wins_today' => 1,
         'daily_limit' => 2,
         'remaining_wins' => 1,
+        'daily_wins_goal' => 5,
+        'remaining_goal_wins' => 4,
     ]);
 
     $feed = app(ListRecentWins::class)->handle(new McpRequest);
@@ -95,6 +102,59 @@ test('MCP tools only use the authenticated user and share the website win limits
         ->toHaveCount(1)
         ->and($feed->getStructuredContent()['groups'][0]['wins'][0]['content'])
         ->toBe('Finished the production MCP connection.');
+});
+
+test('MCP win creation enforces the win content length boundaries', function () {
+    $user = User::factory()->create();
+
+    WinsServer::actingAs($user)
+        ->tool(AddWin::class, ['content' => 'No'])
+        ->assertHasErrors();
+
+    expect($user->wins()->count())->toBe(0);
+});
+
+test('MCP users can set a daily reflection goal from one through five', function () {
+    $user = User::factory()->create();
+
+    WinsServer::actingAs($user)
+        ->tool(SetDailyWinsGoal::class, ['daily_wins_goal' => 3])
+        ->assertOk();
+
+    expect($user->fresh()->daily_wins_goal)->toBe(3);
+
+    WinsServer::actingAs($user)
+        ->tool(SetDailyWinsGoal::class, ['daily_wins_goal' => 6])
+        ->assertHasErrors();
+
+    expect($user->fresh()->daily_wins_goal)->toBe(3);
+});
+
+test('MCP users can choose which days invite a reflection without blocking manual wins', function () {
+    $this->travelTo('2026-08-15 12:00:00 UTC');
+
+    $user = User::factory()->create(['timezone' => 'UTC']);
+    $this->actingAs($user);
+
+    $before = app(GetTodayStatus::class)->handle(new McpRequest);
+    expect($before->getStructuredContent())->toMatchArray([
+        'is_check_in_day' => false,
+        'weekly_check_in_days' => User::DEFAULT_WEEKLY_CHECK_IN_DAYS,
+    ]);
+
+    $this->postJson(route('wins.store'), ['content' => 'Made time to rest.'])
+        ->assertCreated();
+
+    WinsServer::actingAs($user)
+        ->tool(SetWeeklyCheckInDays::class, ['weekly_check_in_days' => [7, 6]])
+        ->assertOk();
+
+    $after = app(GetTodayStatus::class)->handle(new McpRequest);
+    expect($user->fresh()->weekly_check_in_days)->toBe([6, 7])
+        ->and($after->getStructuredContent())->toMatchArray([
+            'is_check_in_day' => true,
+            'weekly_check_in_days' => [6, 7],
+        ]);
 });
 
 test('users can see and revoke their own MCP connection', function () {
@@ -109,6 +169,11 @@ test('users can see and revoke their own MCP connection', function () {
         'revoked' => false,
         'expires_at' => now()->addHour(),
     ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertViewHas('hasMcpConnection', true);
 
     $this->actingAs($user)
         ->get(route('connections.index'))
