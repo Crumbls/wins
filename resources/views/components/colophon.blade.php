@@ -36,6 +36,7 @@
             <a href="{{ route('privacy') }}" class="transition hover:text-ink focus:outline-none focus:ring-2 focus:ring-brand">Privacy</a>
             <a href="{{ route('terms') }}" class="transition hover:text-ink focus:outline-none focus:ring-2 focus:ring-brand">Terms</a>
             <a href="https://www.crumbls.com/contact" class="transition hover:text-ink focus:outline-none focus:ring-2 focus:ring-brand">Contact</a>
+            <a href="https://github.com/Crumbls/wins" class="transition hover:text-ink focus:outline-none focus:ring-2 focus:ring-brand" target="_blank">GitHub</a>
         </nav>
     </div>
 
