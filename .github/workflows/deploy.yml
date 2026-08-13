@@ -1,0 +1,169 @@
+name: Wins CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  APP_DIR: /var/www/crumbls-wins
+  AWS_DEFAULT_REGION: us-west-2
+  SG_ID: ${{ secrets.AWS_DEPLOY_SECURITY_GROUP_ID }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo, pdo_sqlite, bcmath, intl, gd, zip
+          coverage: none
+
+      - name: Prepare Laravel
+        run: |
+          cp .env.example .env
+          mkdir -p database storage/framework/views storage/framework/cache/data storage/framework/sessions storage/framework/testing storage/logs bootstrap/cache
+          touch database/database.sqlite
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Generate application and Passport keys
+        run: |
+          php artisan key:generate
+          php artisan passport:keys --force --no-interaction
+
+      - name: Migrate test database
+        run: php artisan migrate --force
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Build frontend assets
+        run: |
+          npm ci
+          ./node_modules/.bin/vite build
+
+      - name: Run tests
+        run: php artisan test --compact
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_DEPLOY_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_DEPLOY_SECRET_ACCESS_KEY }}
+      HEALTH_CHECK_URL: https://wins.crumbls.com/up
+
+    steps:
+      - name: Get runner public IP
+        id: ip
+        run: echo "ip=$(curl --fail --silent --show-error https://checkip.amazonaws.com)" >> "$GITHUB_OUTPUT"
+
+      - name: Open SSH for runner
+        run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id "$SG_ID" \
+            --protocol tcp \
+            --port 22 \
+            --cidr "${{ steps.ip.outputs.ip }}/32"
+
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo, pdo_sqlite, bcmath, intl, gd, zip
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: |
+          mkdir -p bootstrap/cache storage/framework/views storage/framework/cache/data storage/framework/sessions storage/logs
+          composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Build frontend assets
+        run: |
+          npm ci
+          ./node_modules/.bin/vite build
+
+      - name: Create source archive
+        run: git archive --format=tar.gz --output=source.tar.gz "${{ github.sha }}"
+
+      - name: Verify shared environment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          command_timeout: 1m
+          script_stop: true
+          script: |
+            set -euo pipefail
+            test -f "${{ env.APP_DIR }}/shared/.env"
+
+      - name: Copy release files to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          source: "deploy.sh,source.tar.gz,public/build"
+          target: ${{ env.APP_DIR }}/incoming/${{ github.sha }}
+          overwrite: true
+
+      - name: Deploy release
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          command_timeout: 30m
+          script_stop: true
+          script: |
+            set -e
+            install -m 755 "${{ env.APP_DIR }}/incoming/${{ github.sha }}/deploy.sh" "${{ env.APP_DIR }}/deploy.sh"
+            APP_DIR="${{ env.APP_DIR }}" HEALTH_CHECK_URL="$HEALTH_CHECK_URL" bash "${{ env.APP_DIR }}/deploy.sh" "${{ github.sha }}"
+
+      - name: Configure Laravel scheduler
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          command_timeout: 1m
+          script_stop: true
+          script: |
+            set -euo pipefail
+            scheduler_entry='* * * * * cd /var/www/crumbls-wins/current && /usr/bin/php artisan schedule:run --no-interaction >> /var/www/crumbls-wins/shared/storage/logs/scheduler.log 2>&1'
+            (crontab -l 2>/dev/null | grep -Fv 'artisan schedule:run --no-interaction' || true; printf '%s\n' "$scheduler_entry") | crontab -
+
+      - name: Revoke runner SSH access
+        if: always()
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id "$SG_ID" \
+            --protocol tcp \
+            --port 22 \
+            --cidr "${{ steps.ip.outputs.ip }}/32"
