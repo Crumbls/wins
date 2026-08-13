@@ -1,59 +1,83 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Wins
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Wins is a calm, private progress journal for noticing what is already going well.
 
-## About Laravel
+It is not a task manager, habit tracker, productivity dashboard, or AI assistant. Instead of starting with another list of obligations, a person records the problems they solved, the things they finished, and the moments they are proud of. Over time, those small observations make momentum and consistency visible without turning progress into pressure.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## What it does
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- Lets authenticated people record short wins throughout the day.
+- Shows the current week, a running daily streak, and an infinite history grouped by date.
+- Stores timestamps in UTC and uses the person’s saved time zone only when presenting their days, weekly view, and streak.
+- Limits wins per day with `WINS_MAX_PER_DAY` and rate-limits submissions server-side.
+- Includes public Privacy Policy and Terms of Service pages. Wins stores account and journal data to operate the service and does not sell or resell personal information or wins.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+The interface is Blade, Tailwind CSS, and Alpine.js. Laravel owns the data, authentication, validation, authorization, and rate limits.
 
-## Learning Laravel
+## MCP connection
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+Wins exposes a remote [Model Context Protocol](https://modelcontextprotocol.io/) server through Laravel MCP. An agent can connect to:
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```text
+https://your-wins-domain.example/mcp/wins
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+The connection is OAuth 2.1 through Laravel Passport:
 
-## Contributing
+1. The agent discovers Wins’ OAuth metadata and registers a public PKCE client.
+2. The person signs in to Wins and explicitly approves the connection.
+3. Passport issues a user-bound token with the `mcp:use` scope.
+4. Every MCP call resolves the authenticated user from that token. MCP tools never accept a user ID or email.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+The server currently provides:
 
-## Code of Conduct
+- `get-today-status` — today’s win count, remaining capacity, and daily streak.
+- `add-win` — records a win only when the person explicitly asks; it uses the same daily cap as the web form.
+- `list-recent-wins` — returns the person’s wins in date groups with a cursor for older entries.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+MCP requests require a valid Passport token, the `mcp:use` scope, and are rate-limited per user. Users can view and revoke connected agents from **Connections** in the application header. Revocation invalidates both access and refresh tokens.
 
-## Security Vulnerabilities
+OAuth redirect URIs are allowlisted in `config/mcp.php`; do not replace that allowlist with `*` in production. Add a provider or custom URI scheme only after confirming its OAuth callback requirements.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Local setup
 
-## License
+Requirements: PHP 8.3+, Composer, Node.js, and npm.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
-# wins
+```bash
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan passport:keys
+npm install
+npm run build
+```
+
+Use your normal Laravel/Herd workflow locally. `composer run dev` starts the application’s development processes if you prefer the bundled command.
+
+Useful commands:
+
+```bash
+php artisan test --compact
+vendor/bin/pint --dirty --format=agent
+npm run build
+php artisan schedule:list
+```
+
+## Production configuration
+
+Set `APP_URL` to the canonical HTTPS application URL. Also set:
+
+```dotenv
+MCP_AUTHORIZATION_SERVER=https://your-wins-domain.example
+MCP_MAX_REQUESTS_PER_MINUTE=60
+WINS_MAX_PER_DAY=5
+```
+
+Passport needs a persistent signing key pair. Generate it securely with `php artisan passport:keys` on the deployment environment, or provide `PASSPORT_PRIVATE_KEY` and `PASSPORT_PUBLIC_KEY` through the deployment platform’s secret manager. Never commit those keys.
+
+Run migrations during deployment and ensure Laravel’s scheduler runs every minute. Wins schedules `passport:purge` hourly to remove expired and revoked OAuth material.
+
+## Testing philosophy
+
+The test suite focuses on behavior: account access, registration, win persistence, rate limiting, date grouping, streak calculation, MCP token scope enforcement, user isolation, and connection revocation. It deliberately avoids asserting incidental Blade copy or Alpine implementation details.

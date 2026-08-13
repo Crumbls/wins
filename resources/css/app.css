@@ -1,0 +1,40 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+[x-cloak] {
+    display: none !important;
+}
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-serif: 'Instrument Serif', ui-serif, Georgia, serif;
+    --color-background: var(--color-stone-50);
+    --color-brand: var(--color-emerald-700);
+    --color-brand-strong: var(--color-emerald-800);
+    --color-line: var(--color-stone-200);
+    --color-surface: var(--color-white);
+    --color-ink: var(--color-stone-900);
+    --color-ink-soft: var(--color-stone-500);
+    --color-ink-faint: var(--color-stone-400);
+    --color-muted: var(--color-stone-100);
+    --animate-status-ticker: status-ticker 8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+
+    @keyframes status-ticker {
+        0%,
+        38% {
+            transform: translateY(0);
+        }
+
+        50%,
+        88% {
+            transform: translateY(-1.25rem);
+        }
+
+        100% {
+            transform: translateY(-2.5rem);
+        }
+    }
+}
