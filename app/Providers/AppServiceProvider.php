@@ -23,8 +23,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Passport::tokensExpireIn(now()->addHour());
-        Passport::refreshTokensExpireIn(now()->addDays(90));
         Passport::authorizationView('mcp.authorize');
 
         RateLimiter::for('wins', function (Request $request): Limit {

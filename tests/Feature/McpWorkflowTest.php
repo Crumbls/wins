@@ -19,6 +19,11 @@ use Laravel\Passport\Token;
 
 uses(LazilyRefreshDatabase::class);
 
+test('MCP OAuth token lifetimes use Passport’s long-lived defaults', function () {
+    expect(Passport::tokensExpireIn()->format('%y-%m-%d'))->toBe('1-0-0')
+        ->and(Passport::refreshTokensExpireIn()->format('%y-%m-%d'))->toBe('1-0-0');
+});
+
 test('the MCP endpoint requires an authenticated Passport token with the MCP scope', function () {
     $this->postJson('/mcp/wins', [])->assertUnauthorized();
 
