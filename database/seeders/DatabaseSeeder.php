@@ -52,9 +52,7 @@ class DatabaseSeeder extends Seeder
                 $localDate = $today->copy()->subDays($daysAgo);
                 $dateKey = $localDate->toDateString();
 
-                $total = rand(1, $minPerDay - $winsByDate->get($dateKey, collect())->count());
-
-                $winsNeeded = max(0, $total);
+                $winsNeeded = max(0, $minPerDay - $winsByDate->get($dateKey, collect())->count());
 
                 if ($winsNeeded === 0) {
                     return collect();
