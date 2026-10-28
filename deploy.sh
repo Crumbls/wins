@@ -2,6 +2,13 @@
 
 set -euo pipefail
 
+umask 027
+ISOLATION_HELPER=/usr/local/libexec/site-runtime-isolation/permissions.py
+if [ ! -r "$ISOLATION_HELPER" ]; then
+    echo "Runtime isolation helper is missing; deployment stopped." >&2
+    exit 1
+fi
+
 APP_DIR="${APP_DIR:-/var/www/crumbls-wins}"
 PHP_BIN="${PHP_BIN:-/usr/bin/php}"
 RELEASES_TO_KEEP="${RELEASES_TO_KEEP:-2}"
@@ -84,9 +91,7 @@ fi
 "$PHP_BIN" artisan migrate --force --no-interaction
 "$PHP_BIN" artisan optimize
 
-find "$RELEASE" "$APP_DIR/shared" -user "$(id -u)" -exec chgrp apache {} +
-find "$RELEASE" -user "$(id -u)" -exec chmod g+rX {} +
-find "$APP_DIR/shared/storage" "$APP_DIR/shared/bootstrap/cache" "$APP_DIR/shared/database" -user "$(id -u)" -exec chmod g+rwX {} +
+python3 "$ISOLATION_HELPER" wins "$RELEASE"
 
 cat > "$APP_DIR/shared/storage/app/deployment.json" <<EOF
 {
