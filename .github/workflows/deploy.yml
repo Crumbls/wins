@@ -12,7 +12,6 @@ permissions:
 env:
   APP_DIR: /var/www/crumbls-wins
   AWS_DEFAULT_REGION: us-west-2
-  SG_ID: ${{ secrets.AWS_DEPLOY_SECURITY_GROUP_ID }}
 
 jobs:
   test:
@@ -68,9 +67,10 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      contents: read
+      id-token: write
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_DEPLOY_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_DEPLOY_SECRET_ACCESS_KEY }}
       HEALTH_CHECK_URL: https://wins.crumbls.com/up
 
     steps:
@@ -78,7 +78,23 @@ jobs:
         id: ip
         run: echo "ip=$(curl --fail --silent --show-error https://checkip.amazonaws.com)" >> "$GITHUB_OUTPUT"
 
+      - name: Request short-lived AWS credentials
+        id: aws
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: wins-deploy-${{ github.run_id }}
+          aws-region: us-west-2
+          allowed-account-ids: '716408785890'
+          output-credentials: true
+          output-env-credentials: false
+
       - name: Open SSH for runner
+        env:
+          AWS_ACCESS_KEY_ID: ${{ steps.aws.outputs.aws-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.aws.outputs.aws-secret-access-key }}
+          AWS_SESSION_TOKEN: ${{ steps.aws.outputs.aws-session-token }}
+          SG_ID: ${{ vars.AWS_DEPLOY_SECURITY_GROUP_ID }}
         run: |
           aws ec2 authorize-security-group-ingress \
             --group-id "$SG_ID" \
@@ -156,11 +172,16 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            scheduler_entry='* * * * * cd /var/www/crumbls-wins/current && /usr/bin/php artisan schedule:run --no-interaction >> /var/www/crumbls-wins/shared/storage/logs/scheduler.log 2>&1'
-            (crontab -l 2>/dev/null | grep -Fv 'artisan schedule:run --no-interaction' || true; printf '%s\n' "$scheduler_entry") | crontab -
+            test "$(systemctl show wins-scheduler.service --property=User --value)" = winsphp
+            systemctl is-active --quiet wins-scheduler.timer
 
       - name: Revoke runner SSH access
-        if: always()
+        if: always() && steps.ip.outputs.ip != '' && steps.aws.outcome == 'success'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ steps.aws.outputs.aws-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.aws.outputs.aws-secret-access-key }}
+          AWS_SESSION_TOKEN: ${{ steps.aws.outputs.aws-session-token }}
+          SG_ID: ${{ vars.AWS_DEPLOY_SECURITY_GROUP_ID }}
         run: |
           aws ec2 revoke-security-group-ingress \
             --group-id "$SG_ID" \
